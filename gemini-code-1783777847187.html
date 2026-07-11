@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>물류센터 디지털 트윈 시뮬레이터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C11;
+    --bg-glow: radial-gradient(900px 480px at 12% -8%, rgba(109,93,252,.18) 0%, transparent 60%),
+               radial-gradient(700px 420px at 92% 6%, rgba(34,211,238,.10) 0%, transparent 55%);
+    --panel: rgba(255,255,255,0.035);
+    --panel-solid:#12151d;
+    --panel2: rgba(255,255,255,0.045);
+    --border: rgba(255,255,255,0.09);
+    --accent1:#7C6FFF;
+    --accent2:#22D3EE;
+    --grad: linear-gradient(90deg, var(--accent1), var(--accent2));
+    --good:#34D399;
+    --warn:#FBBF24;
+    --bad:#FB7185;
+    --text:#F3F5F9;
+    --text-dim:#9AA1B2;
+    --text-dim2:#5B6273;
+    --mono:'JetBrains Mono',monospace;
+    --disp:'Space Grotesk',sans-serif;
+    --body:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background: var(--bg-glow), var(--bg);
+    color:var(--text);
+    font-family:var(--body);
+    padding:32px 22px 60px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1200px;margin:0 auto;}
+
+  header{display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:22px;}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--accent2);text-transform:uppercase;}
+  h1{font-family:var(--disp);font-weight:700;font-size:34px;line-height:1.08;margin:8px 0 0;letter-spacing:-.01em;}
+  .subtitle{color:var(--text-dim);font-size:13.5px;margin-top:9px;max-width:520px;line-height:1.6;}
+
+  .gauge-wrap{display:flex;align-items:center;gap:16px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px 20px;backdrop-filter:blur(14px);}
+  .gauge-ring{
+    width:88px;height:88px;border-radius:50%;position:relative;flex:none;
+    background:conic-gradient(var(--ring-color,#34D399) calc(var(--pct,100)*1%), rgba(255,255,255,.07) 0);
+    transition:background .3s;
+  }
+  .gauge-ring::before{content:"";position:absolute;inset:9px;border-radius:50%;background:var(--bg);}
+  .gauge-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1;}
+  .gauge-inner .pct{font-family:var(--mono);font-size:19px;font-weight:700;}
+  .gauge-inner .lbl2{font-size:8.5px;color:var(--text-dim2);letter-spacing:.04em;margin-top:1px;}
+  .gauge-text b{font-family:var(--disp);font-size:15px;display:block;letter-spacing:.01em;}
+  .gauge-text span{font-family:var(--mono);font-size:11px;color:var(--text-dim);}
+
+  .divider{height:1px;margin:24px 0 26px;background:linear-gradient(90deg,var(--accent1),var(--accent2),transparent);opacity:.5;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  @media (max-width:900px){.grid{grid-template-columns:1fr;}}
+
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:24px 24px 26px;backdrop-filter:blur(14px);}
+  .panel h2{font-family:var(--disp);font-size:19px;font-weight:700;margin:0 0 4px;letter-spacing:-.005em;}
+  .panel .desc{color:var(--text-dim);font-size:12.5px;margin:0 0 18px;line-height:1.55;}
+  .guide-link{color:var(--accent2);cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+
+  .field{margin-bottom:19px;}
+  .field-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;}
+  .field-label{font-size:13px;color:var(--text);font-weight:500;}
+  .field-val{font-family:var(--mono);font-size:13px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700;}
+  input[type=range]{
+    -webkit-appearance:none;width:100%;height:6px;border-radius:6px;outline:none;
+    background: linear-gradient(90deg, var(--accent1) 0%, var(--accent2) var(--fill,50%), rgba(255,255,255,.08) var(--fill,50%));
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:17px;height:17px;border-radius:50%;
+    background:#fff;border:3px solid var(--accent1);cursor:pointer;margin-top:-.5px;
+    box-shadow:0 0 0 5px rgba(124,111,255,.16);
+  }
+  input[type=range]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;background:#fff;border:3px solid var(--accent1);cursor:pointer;}
+
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;margin-bottom:19px;}
+  .toggle-row span{font-size:13px;}
+  .switch{position:relative;width:42px;height:24px;flex:none;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider-tog{position:absolute;inset:0;background:rgba(255,255,255,.12);border-radius:20px;cursor:pointer;transition:.2s;}
+  .slider-tog:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#dfe2ea;border-radius:50%;transition:.2s;}
+  .switch input:checked + .slider-tog{background:var(--grad);}
+  .switch input:checked + .slider-tog:before{transform:translateX(18px);background:#fff;}
+
+  .presetbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+  .preset-btn{font-family:var(--body);font-size:12px;font-weight:500;background:var(--panel2);border:1px solid var(--border);color:var(--text-dim);padding:8px 13px;border-radius:20px;cursor:pointer;transition:.15s;}
+  .preset-btn:hover{border-color:var(--accent2);color:var(--text);}
+
+  .capbar-box{margin-bottom:36px;}
+  .capbar-top{display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim);margin-bottom:10px;}
+  .capbar-top b{color:var(--text);font-family:var(--disp);font-size:13.5px;}
+  .cb-track{position:relative;height:22px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid var(--border);overflow:visible;}
+  .cb-fill{height:100%;border-radius:7px;transition:.35s;background:var(--good);}
+  .cb-marker{position:absolute;top:-5px;bottom:-5px;width:2px;background:#fff;opacity:.85;}
+  .cb-marker .mk-label{position:absolute;top:27px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:10px;color:var(--text-dim);white-space:nowrap;background:var(--bg);padding:1px 5px;border-radius:4px;border:1px solid var(--border);}
+
+  .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:18px;}
+  .kpi{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+  .kpi .lbl{font-size:11px;color:var(--text-dim);letter-spacing:.02em;}
+  .kpi .val{font-family:var(--mono);font-size:22px;font-weight:700;margin-top:5px;}
+  .kpi.wide{grid-column:1/-1;background:linear-gradient(135deg, rgba(124,111,255,.10), rgba(34,211,238,.06));}
+  .kpi .val.good{color:var(--good);}
+  .kpi .val.bad{color:var(--bad);}
+  .kpi .sub{font-size:10.5px;color:var(--text-dim2);margin-top:3px;line-height:1.5;}
+
+  .breakdown-bar{display:flex;height:36px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:rgba(255,255,255,.04);}
+  .breakdown-bar .seg{height:100%;transition:width .35s;}
+  .breakdown-legend{display:flex;flex-wrap:wrap;gap:9px 18px;margin-top:14px;font-size:11.5px;color:var(--text-dim);}
+  .breakdown-legend .item{display:flex;align-items:center;gap:6px;}
+  .breakdown-legend .dot{width:9px;height:9px;border-radius:3px;flex:none;}
+  .breakdown-legend b{color:var(--text);font-family:var(--mono);font-weight:600;}
+  .deficit-banner{display:none;margin-top:12px;background:rgba(251,113,133,.12);border:1px solid rgba(251,113,133,.4);color:var(--bad);border-radius:10px;padding:10px 14px;font-size:12px;line-height:1.55;}
+
+  .logbox{margin-top:16px;background:#080a0e;border:1px solid var(--border);border-radius:12px;padding:11px 13px;max-height:140px;overflow-y:auto;font-family:var(--mono);font-size:11px;color:var(--text-dim);line-height:1.7;}
+  .logbox .entry-good{color:var(--good);}
+  .logbox .entry-bad{color:var(--bad);}
+  .logbox .ts{color:var(--text-dim2);}
+
+  .kpi-guide{display:none;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:15px 17px;margin-bottom:18px;font-size:12px;line-height:1.9;color:var(--text-dim);}
+  .kpi-guide b{color:var(--text);}
+
+  .assumptions{margin-top:22px;font-size:11.5px;color:var(--text-dim2);line-height:1.7;background:var(--panel2);border:1px dashed var(--border);border-radius:12px;padding:14px 16px;}
+  .assumptions b{color:var(--text-dim);}
+
+  .runbtn{width:100%;margin-top:2px;background:var(--grad);color:#0a0c11;border:none;font-family:var(--disp);font-weight:700;font-size:14.5px;letter-spacing:.01em;padding:13px;border-radius:11px;cursor:pointer;transition:.15s;}
+  .runbtn:hover{filter:brightness(1.08);transform:translateY(-1px);}
+  .runbtn:active{transform:scale(.99);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="eyebrow">DIGITAL TWIN · FULFILLMENT CENTER</div>
+      <h1>물류센터 경영 시뮬레이터</h1>
+      <p class="subtitle">현실의 변수(주문량·인력·자동화 수준·기상)를 입력하면, 가상 물류센터가 실시간으로 처리율·지연시간·비용·영업이익을 계산해 보여주는 간이 디지털 트윈입니다.</p>
+    </div>
+    <div class="gauge-wrap">
+      <div class="gauge-ring" id="gaugeRing" style="position:relative;">
+        <div class="gauge-inner"><div class="pct" id="gaugePct">100%</div><div class="lbl2">처리율</div></div>
+      </div>
+      <div class="gauge-text">
+        <b id="statusText">정상 가동</b>
+        <span id="statusSub">처리능력 여유 있음</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="divider"></div>
+
+  <div class="grid">
+
+    <div class="panel">
+      <h2>① 변수 조작 패널</h2>
+      <p class="desc">슬라이더를 움직여 물류센터의 현실 변수를 조정하세요. 모든 출력값은 즉시 재계산됩니다.</p>
+
+      <div class="presetbar">
+        <button class="preset-btn" onclick="applyPreset('normal')">🟢 평상시</button>
+        <button class="preset-btn" onclick="applyPreset('holiday')">📦 명절특수 +300%</button>
+        <button class="preset-btn" onclick="applyPreset('wage')">💴 최저임금 인상</button>
+        <button class="preset-btn" onclick="applyPreset('weather')">🌨 폭설·기상악화</button>
+        <button class="preset-btn" onclick="applyPreset('automation')">🤖 완전자동화 투자</button>
+      </div>
+
+      <div class="field">
+        <div class="field-top"><span class="field-label">일일 주문량</span><span class="field-val" id="v_orders">10,000건</span></div>
+        <input type="range" id="orders" min="1000" max="50000" step="500" value="10000" oninput="update()">
+      </div>
+      <div class="field">
+        <div class="field-top"><span class="field-label">근무 인력 수</span><span class="field-val" id="v_workers">100명</span></div>
+        <input type="range" id="workers" min="10" max="500" step="5" value="100" oninput="update()">
+      </div>
+      <div class="field">
+        <div class="field-top"><span class="field-label">자동화 설비 비중</span><span class="field-val" id="v_auto">30%</span></div>
+        <input type="range" id="automation" min="0" max="100" step="5" value="30" oninput="update()">
+      </div>
+      <div class="field">
+        <div class="field-top"><span class="field-label">시간당 최저임금</span><span class="field-val" id="v_wage">10,030원</span></div>
+        <input type="range" id="wage" min="9000" max="15000" step="10" value="10030" oninput="update()">
+      </div>
+
+      <div class="toggle-row">
+        <span>🌧 기상 악화 (도로·컨베이어 처리속도 저하)</span>
+        <label class="switch"><input type="checkbox" id="weather" onchange="update()"><span class="slider-tog"></span></label>
+      </div>
+
+      <button class="runbtn" onclick="runStressTest()">⚡ 스트레스 테스트 실행 (극단 시나리오 기록)</button>
+
+      <div class="assumptions">
+        <b>모델 가정(교육용 단순화)</b> — 작업자 1인 기본 처리량 25건/시간, 정규 근무 8시간, 평균 주문단가 8,000원, 자동화는 처리속도를 최대 +80%까지 향상 및 오배송률 감소, 부족 인력은 시급의 1.5배로 임시 충원, 자동화 설비 유지비는 자동화 비중에 비례하여 일 최대 500만원, 기상악화는 처리능력을 15% 낮추고 지연 +20분·오배송 +1%p를 고정 가산합니다.
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>② 실시간 경영 성과 (KPI)</h2>
+      <p class="desc">현재 변수 조합에서 가 가상 물류센터가 도출한 예측 결과입니다.</p>
+      <div class="guide-link" id="kpiGuideToggle" style="display:block;margin:-12px 0 16px;font-size:12px;">지표 계산 방식 보기 ▾</div>
+
+      <div class="kpi-guide" id="kpiGuide">
+        <b>주문 처리율</b> — '처리능력(인력×자동화×근무시간)'이 '주문량'을 감당하는 비율. 100% 미만이면 병목 신호이며, 나머지 지표는 대부분 여기서 파생됩니다.<br>
+        <b>평균 배송 지연</b> — 병목이 없으면 기준 15분. 병목이 생기면 부족분에 비례해 늘어나고, 기상악화는 병목과 무관하게 +20분 고정.<br>
+        <b>필요 임시 충원 / 초과근무 수당</b> — 처리율이 100% 미만일 때만 발생. 부족분을 메울 인원 수를 역산하고, 그 인건비(1.5배)가 비용으로 잡힘.<br>
+        <b>오배송·손실률</b> — 인력 과부하 시 상승, 자동화 시 감소, 기상악화 시 +1%p 고정.<br>
+        <b>영업이익</b> — 위 모든 지표가 비용/손실로 다시 모여 "이 의사결정이 회사에 남긴 돈"으로 환산되는 최종 결론값. 아래 워터폴 차트가 이 계산 흐름을 그대로 보여줍니다.
+      </div>
+
+      <div class="capbar-box">
+        <div class="capbar-top"><b>처리능력 vs 주문량</b><span id="cbRatioText">여유 148%</span></div>
+        <div class="cb-track">
+          <div class="cb-fill" id="cbFill" style="width:40%;"></div>
+          <div class="cb-marker" id="cbMarker" style="left:68%;"><div class="mk-label" id="cbMarkerLabel">처리능력</div></div>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi"><div class="lbl">주문 처리율</div><div class="val" id="k_fulfillment">100%</div><div class="sub" id="k_fulfillment_sub">전량 처리 가능</div></div>
+        <div class="kpi"><div class="lbl">평균 배송 지연</div><div class="val" id="k_delay">15분</div><div class="sub" id="k_delay_sub">기준 처리시간(15분) 대비 지연</div></div>
+        <div class="kpi"><div class="lbl">필요 임시 충원 인력</div><div class="val" id="k_extra">0명</div><div class="sub">부족분 충당 시 필요 인원</div></div>
+        <div class="kpi"><div class="lbl">초과근무 수당</div><div class="val" id="k_overtime">0원</div><div class="sub">일 단위</div></div>
+        <div class="kpi"><div class="lbl">오배송·손실률</div><div class="val" id="k_misship">0.5%</div><div class="sub" id="k_misship_sub">과부하·기상악화 시 상승</div></div>
+        <div class="kpi"><div class="lbl">일일 매출</div><div class="val" id="k_revenue">80,000,000원</div><div class="sub">주문량 × 평균단가</div></div>
+        <div class="kpi wide"><div class="lbl">일일 예상 영업이익</div><div class="val" id="k_profit">00,000,000원</div><div class="sub" id="k_profit_sub"></div></div>
+      </div>
+
+      <div class="capbar-top" style="margin-bottom:6px;"><b>매출 → 영업이익 손익 구조</b><span style="color:var(--text-dim2);">단위: 백만원</span></div>
+      <div class="breakdown-bar" id="breakdownBar"></div>
+      <div class="breakdown-legend" id="breakdownLegend"></div>
+      <div class="deficit-banner" id="deficitBanner"></div>
+
+      <div class="logbox" id="logbox"><div><span class="ts">[대기]</span> 스트레스 테스트를 실행하면 이곳에 결과가 기록됩니다.</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE_RATE = 25, HOURS = 8, AVG_ORDER_VALUE = 8000;
+
+function fmt(n){ return Math.round(n).toLocaleString('ko-KR'); }
+
+function computeMetrics(o){
+  const autoMult = 1 + (o.automation/100)*0.8;
+  const weatherMult = o.weather ? 0.85 : 1;
+  const effRate = BASE_RATE * autoMult * weatherMult;
+  const capacity = o.workers * effRate * HOURS;
+  const WEATHER_FLAT_DELAY = 20, WEATHER_FLAT_MISSHIP = 1.0;
+
+  let fulfillment, delay, extraWorkers, overtimePay, misshipRate;
+  if(o.orders <= capacity){
+    fulfillment = 100; delay = 15; extraWorkers = 0; overtimePay = 0;
+    misshipRate = Math.max(0.1, 0.5 - (o.automation/100)*0.3);
+  } else {
+    const shortage = o.orders - capacity;
+    extraWorkers = Math.ceil(shortage / (effRate*HOURS));
+    overtimePay = extraWorkers * o.wage * HOURS * 1.5;
+    fulfillment = (capacity/o.orders)*100;
+    delay = 15 + (shortage/capacity)*60;
+    const overloadFactor = shortage/capacity;
+    misshipRate = Math.max(0.1, 0.5 + overloadFactor*4 - (o.automation/100)*0.3);
+  }
+  if(o.weather){ delay += WEATHER_FLAT_DELAY; misshipRate += WEATHER_FLAT_MISSHIP; }
+  misshipRate = Math.min(misshipRate, 20);
+
+  const revenue = o.orders * AVG_ORDER_VALUE;
+  const laborCost = o.workers * o.wage * HOURS;
+  const automationCost = (o.automation/100) * 5000000;
+  const misshipLoss = o.orders * (misshipRate/100) * AVG_ORDER_VALUE * 0.5;
+  const profit = revenue - laborCost - overtimePay - automationCost - misshipLoss;
+
+  return {fulfillment, delay, extraWorkers, overtimePay, misshipRate, revenue, laborCost, automationCost, misshipLoss, profit, capacity};
+}
+
+function getInputs(){
+  return {
+    orders: +document.getElementById('orders').value,
+    workers: +document.getElementById('workers').value,
+    automation: +document.getElementById('automation').value,
+    wage: +document.getElementById('wage').value,
+    weather: document.getElementById('weather').checked
+  };
+}
+
+function syncSliderFill(id){
+  const el = document.getElementById(id);
+  const pct = (el.value-el.min)/(el.max-el.min)*100;
+  el.style.setProperty('--fill', pct+'%');
+}
+
+function setGauge(fulfillment, misshipRate){
+  const ring = document.getElementById('gaugeRing');
+  const pctEl = document.getElementById('gaugePct');
+  const statusText = document.getElementById('statusText');
+  const statusSub = document.getElementById('statusSub');
+  const shown = Math.min(fulfillment,100);
+  ring.style.setProperty('--pct', shown);
+  pctEl.textContent = fulfillment.toFixed(0)+'%';
+  let color;
+  if(fulfillment >= 98 && misshipRate < 2){ color='#34D399'; statusText.textContent='정상 가동'; statusSub.textContent='처리능력 여유 있음'; }
+  else if(fulfillment >= 85){ color='#FBBF24'; statusText.textContent='병목 주의'; statusSub.textContent='처리능력에 근접함'; }
+  else { color='#FB7185'; statusText.textContent='과부하 위험'; statusSub.textContent='즉시 증원·자동화 필요'; }
+  ring.style.setProperty('--ring-color', color);
+}
+
+function updateCapBar(capacity, orders){
+  const scale = Math.max(capacity, orders) * 1.15;
+  const orderPct = (orders/scale)*100;
+  const capPct = (capacity/scale)*100;
+  const fill = document.getElementById('cbFill');
+  const marker = document.getElementById('cbMarker');
+  fill.style.width = orderPct+'%';
+  fill.style.background = orders>capacity ? 'var(--bad)' : 'linear-gradient(90deg,var(--accent1),var(--accent2))';
+  marker.style.left = capPct+'%';
+  document.getElementById('cbMarkerLabel').textContent = '처리능력 '+fmt(capacity)+'건';
+  const ratio = ((capacity-orders)/orders*100);
+  document.getElementById('cbRatioText').textContent = (ratio>=0?'여유 ':'초과 ')+Math.abs(ratio).toFixed(0)+'% (주문 '+fmt(orders)+'건)';
+}
+
+function update(){
+  const o = getInputs();
+  document.getElementById('v_orders').textContent = fmt(o.orders)+'건';
+  document.getElementById('v_workers').textContent = o.workers+'명';
+  document.getElementById('v_auto').textContent = o.automation+'%';
+  document.getElementById('v_wage').textContent = fmt(o.wage)+'원';
+  ['orders','workers','automation','wage'].forEach(syncSliderFill);
+
+  const m = computeMetrics(o);
+
+  const fEl = document.getElementById('k_fulfillment');
+  fEl.textContent = m.fulfillment.toFixed(1)+'%';
+  fEl.className = 'val ' + (m.fulfillment>=98?'good':(m.fulfillment<85?'bad':''));
+  const margin = ((m.capacity - o.orders)/o.orders*100);
+  document.getElementById('k_fulfillment_sub').textContent =
+    `처리능력 ${fmt(m.capacity)}건 (주문 대비 여유 ${margin>=0?'+':''}${margin.toFixed(0)}%)` + (o.weather ? ' · 🌧 능력 15%↓ 반영' : '');
+
+  const dEl = document.getElementById('k_delay');
+  dEl.textContent = Math.round(m.delay)+'분';
+  dEl.className = 'val ' + (m.delay>60?'bad':'');
+  document.getElementById('k_delay_sub').textContent = '기준 처리시간(15분) 대비 지연' + (o.weather ? ' · 🌧 +20분 고정 가산' : '');
+
+  document.getElementById('k_extra').textContent = m.extraWorkers+'명';
+  document.getElementById('k_overtime').textContent = fmt(m.overtimePay)+'원';
+
+  const msEl = document.getElementById('k_misship');
+  msEl.textContent = m.misshipRate.toFixed(2)+'%';
+  msEl.className = 'val ' + (m.misshipRate>5?'bad':'');
+  document.getElementById('k_misship_sub').textContent = '과부하 시 상승' + (o.weather ? ' · 🌧 +1%p 고정 가산' : '');
+
+  document.getElementById('k_revenue').textContent = fmt(m.revenue)+'원';
+  const pEl = document.getElementById('k_profit');
+  pEl.textContent = fmt(m.profit)+'원';
+  pEl.className = 'val ' + (m.profit<0?'bad':'good');
+  document.getElementById('k_profit_sub').textContent =
+    `매출 ${fmt(m.revenue)} − 인건비 ${fmt(m.laborCost)} − 초과수당 ${fmt(m.overtimePay)} − 자동화유지비 ${fmt(m.automationCost)} − 오배송손실 ${fmt(m.misshipLoss)}`;
+
+  setGauge(m.fulfillment, m.misshipRate);
+  updateCapBar(m.capacity, o.orders);
+  updateBreakdown(m);
+}
+
+function updateBreakdown(m){
+  const segs = [
+    {label:'인건비', val:m.laborCost, color:'#FB7185'},
+    {label:'초과근무수당', val:m.overtimePay, color:'#FBBF24'},
+    {label:'자동화유지비', val:m.automationCost, color:'#7C6FFF'},
+    {label:'오배송손실', val:m.misshipLoss, color:'#F472B6'}
+  ];
+  const barEl = document.getElementById('breakdownBar');
+  const legendEl = document.getElementById('breakdownLegend');
+  const bannerEl = document.getElementById('deficitBanner');
+  barEl.innerHTML = '';
+  legendEl.innerHTML = '';
+
+  const renderSegs = (list, denom) => {
+    list.forEach(s=>{
+      const pct = Math.max(0,(s.val/denom*100));
+      const seg = document.createElement('div');
+      seg.className = 'seg';
+      seg.style.width = pct.toFixed(2)+'%';
+      seg.style.background = s.color;
+      seg.title = s.label+' '+fmt(s.val)+'원 ('+pct.toFixed(1)+'%)';
+      barEl.appendChild(seg);
+    });
+    list.forEach(s=>{
+      const item = document.createElement('div');
+      item.className = 'item';
+      item.innerHTML = `<span class="dot" style="background:${s.color}"></span>${s.label} <b>${fmt(s.val)}원</b>`;
+      legendEl.appendChild(item);
+    });
+  };
+
+  if(m.profit >= 0){
+    bannerEl.style.display = 'none';
+    const all = segs.concat([{label:'영업이익', val:m.profit, color:'#22D3EE'}]);
+    renderSegs(all, m.revenue);
+  } else {
+    const totalCost = segs.reduce((a,s)=>a+s.val,0);
+    renderSegs(segs, totalCost);
+    bannerEl.style.display = 'block';
+    bannerEl.textContent = `⚠ 총 비용(${fmt(totalCost)}원)이 매출(${fmt(m.revenue)}원)을 초과해 하루 ${fmt(Math.abs(m.profit))}원의 적자가 발생합니다. 막대는 비용 항목 간 구성 비율만 나타냅니다.`;
+  }
+}
+
+function applyPreset(name){
+  const set=(id,val)=>document.getElementById(id).value=val;
+  if(name==='normal'){ set('orders',10000); set('workers',100); set('automation',30); set('wage',10030); document.getElementById('weather').checked=false; }
+  else if(name==='holiday'){ set('orders',30000); set('workers',100); set('automation',30); set('wage',10030); document.getElementById('weather').checked=false; }
+  else if(name==='wage'){ set('orders',10000); set('workers',100); set('automation',30); set('wage',13000); document.getElementById('weather').checked=false; }
+  else if(name==='weather'){ set('orders',12000); set('workers',90); set('automation',30); set('wage',10030); document.getElementById('weather').checked=true; }
+  else if(name==='automation'){ set('orders',10000); set('workers',60); set('automation',90); set('wage',10030); document.getElementById('weather').checked=false; }
+  update();
+}
+
+function runStressTest(){
+  const o = getInputs();
+  const m = computeMetrics(o);
+  const box = document.getElementById('logbox');
+  const now = new Date();
+  const ts = now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const cls = m.profit<0 ? 'entry-bad' : 'entry-good';
+  const verdict = m.profit<0
+    ? `⚠ 적자 예상 (${fmt(m.profit)}원). 인력 ${m.extraWorkers}명 추가 또는 자동화 확대 필요.`
+    : `✔ 흑자 유지 (${fmt(m.profit)}원). 처리율 ${m.fulfillment.toFixed(1)}%.`;
+  const line = document.createElement('div');
+  line.innerHTML = `<span class="ts">[${ts}]</span> 주문 ${fmt(o.orders)}건 · 인력 ${o.workers}명 · 자동화 ${o.automation}% · 시급 ${fmt(o.wage)}원${o.weather?' · 기상악화':''} → <span class="${cls}">${verdict}</span>`;
+  box.prepend(line);
+}
+
+document.getElementById('kpiGuideToggle').addEventListener('click', function(){
+  const box = document.getElementById('kpiGuide');
+  const isHidden = window.getComputedStyle(box).display === 'none';
+  box.style.display = isHidden ? 'block' : 'none';
+  this.textContent = isHidden ? '가이드 접기 ▴' : '지표 계산 방식 보기 ▾';
+});
+
+update();
+</script>
+</body>
+</html>
